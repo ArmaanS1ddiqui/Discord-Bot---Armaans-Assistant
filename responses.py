@@ -3,10 +3,10 @@ from random import choice , randint
 
 def get_response(user_input: str) -> str:
 
-    if not user_input.startswith("!"):
-        return ''
+    # if not user_input.startswith("$"):
+    #     return ''
     
-    user_input = user_input[1:].strip()
+    # user_input = user_input[1:].strip()
 
     lowered:str = user_input.lower()
 

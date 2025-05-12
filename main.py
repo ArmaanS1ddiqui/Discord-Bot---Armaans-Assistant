@@ -24,12 +24,33 @@ async def send_message(message:Message,user_message:str) -> None:
     if is_private := user_message[0] == '?':
         user_message = user_message[1:]
 
-    try:
-               
-        response: str = get_response(user_message)
-        await message.author.send(response) if is_private else await message.channel.send(response)
-    except Exception as e:
-        print(e)
+    
+    if user_message[0] == '$':
+        if user_message.startswith('$announce'):
+            if not message.mentions:
+                await message.channel.send("Please mention at least one user to send the announcement.")
+                return
+
+            try:
+                content = user_message
+                for mention in message.mentions:
+                    content = content.replace(f"<@{mention.id}>", "")
+                content = content.replace('$announce', '').strip()
+
+            # Send DM to each mentioned user
+                for user in message.mentions:
+                    await user.send(f"📢 Announcement from {message.author.name}: {content}")
+            
+                await message.channel.send("✅ Announcement sent successfully.")
+            except Exception as e:
+                print(f"Error sending announcement: {e}")
+                await message.channel.send("❌ Failed to send the announcement.")
+            return
+        try:
+            response: str = get_response(user_message)
+            await message.author.send(response) if is_private else await message.channel.send(response)
+        except Exception as e:
+            print(e)
 
 #handling the startup for our bot
 @client.event

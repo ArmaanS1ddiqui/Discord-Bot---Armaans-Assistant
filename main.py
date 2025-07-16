@@ -3,11 +3,16 @@ import os, asyncio
 from dotenv import load_dotenv
 from discord import Intents, Client, Message, FFmpegPCMAudio
 from responses import get_response
+from gtts import gTTS
+import openai
+from openai import AsyncOpenAI
 
 # Load Discord Bot Token
 load_dotenv()
 TOKEN: Final[str] = os.getenv('DISCORD_TOKEN')
+OPENAI_API_KEY: Final[str] = os.getenv("OPEN_AI_KEY")
 
+open_ai_client = AsyncOpenAI(api_key=os.getenv("OPEN_AI_KEY"))
 # Bot setup with required intents
 intents: Intents = Intents.default()
 intents.message_content = True
@@ -17,8 +22,7 @@ client: Client = Client(intents=intents)
 
 # Convert text to speech (TTS) and save as MP3
 async def tts_to_mp3(text: str, filename: str) -> None:
-    try:
-        from gtts import gTTS
+    try:        
         tts = gTTS(text=text, lang="en", slow=False)
         tts.save(filename)
     except Exception as e:
@@ -36,7 +40,7 @@ async def send_message(message: Message, user_message: str) -> None:
         user_message = user_message[1:].strip()
 
     # TTS functionality
-    if user_message.startswith("$speak"):
+    if user_message.startswith("$speak") or user_message.startswith("$Speak"):
         content_to_say = user_message[len("$speak"):].strip()
 
         if not message.guild:
@@ -82,7 +86,17 @@ async def send_message(message: Message, user_message: str) -> None:
             await message.channel.send("❌ Error during playback.")
             await vc.disconnect()
         return
-
+    
+    if user_message.startswith("$ask") or user_message.startswith("$code"):
+        prompt = user_message[len("$ask"):].strip()
+        if not prompt:
+            await message.channel.send("please enter a question or a coding prompt after $ask")
+            return 
+        await message.channel.send("💬 Thinking...")
+        answer = await get_chatgpt_response(prompt)
+        await message.channel.send(f"{answer}")
+        return 
+    
     # Fallback for regular messages
     try:
         response = get_response(user_message)
@@ -92,6 +106,22 @@ async def send_message(message: Message, user_message: str) -> None:
             await message.channel.send(response)
     except Exception as e:
         print(f"Response error: {e}")
+
+#chatgpt part 
+async def get_chatgpt_response(prompt: str) -> str:
+    try:
+        response = await open_ai_client.chat.completions.create(
+            model = "gpt-3.5-turbo" ,
+            messages = [{"role":"user","content":prompt}],
+            max_tokens=200, #character count
+            temperature=0.7, #creativity - 1 is to creative and 0 is strict
+            
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"OpenAI Error: {e}")
+        return "❌ Error getting response please try again."
+    
 
 # Handle bot startup
 @client.event
